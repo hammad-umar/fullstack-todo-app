@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { z } from "zod";
-import { FC } from "react";
+import { FC, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -16,18 +16,20 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from "../ui/field";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const LoginSchema = z.object({
   email: z.string().email("Provide valid email address."),
-  password: z
-    .string()
-    .min(8, "Password contains at least 8 characters.")
-    .max(32, "Password can not exceed 32 characters."),
+  password: z.string().min(1, "Password is required."),
 });
 
 type LoginForm = z.infer<typeof LoginSchema>;
 
 const LoginForm: FC = () => {
+  const router = useRouter();
+  const [loading, setLoading] = useState<boolean>(false);
+
   const form = useForm<LoginForm>({
     resolver: zodResolver(LoginSchema),
     defaultValues: {
@@ -36,8 +38,26 @@ const LoginForm: FC = () => {
     },
   });
 
-  const handleOnSubmit = (values: LoginForm) => {
-    console.log(values);
+  const handleOnSubmit = async (values: LoginForm): Promise<void> => {
+    setLoading(true);
+
+    const supabase = createClient();
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        ...values,
+      });
+
+      if (error) throw error;
+
+      alert("Login successful!");
+      router.push("/");
+    } catch (err: unknown) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "An error occurred.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -97,13 +117,13 @@ const LoginForm: FC = () => {
       </CardContent>
       <CardFooter>
         <Field orientation="horizontal">
-          <Button type="submit" form="form-rhf-login">
-            Submit
+          <Button disabled={loading} type="submit" form="form-rhf-login">
+            {loading ? "Logging in..." : "Submit"}
           </Button>
         </Field>
         <Field orientation="horizontal">
           <p>
-            Don&apos;t have an account?
+            Don&apos;t have an account?{" "}
             <span className="underline text-blue-600">
               <Link href="/register">Register</Link>
             </span>
